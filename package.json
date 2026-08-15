@@ -1,0 +1,9 @@
+{
+  "name": "ffte",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:wasm": "node tests/test_wasm.mjs"
+  }
+}
