@@ -144,6 +144,110 @@ void complex_fft(std::vector<Complex>& values, bool inverse) {
     }
 }
 
+class ForwardFFTPlan {
+public:
+    explicit ForwardFFTPlan(std::size_t length)
+        : length_(length), radix2_(is_power_of_two(length)) {
+        if (radix2_) {
+            bit_reversal_.resize(length);
+            for (std::size_t index = 1, reversed = 0; index < length; ++index) {
+                std::size_t bit = length >> 1;
+                while ((reversed & bit) != 0) {
+                    reversed ^= bit;
+                    bit >>= 1;
+                }
+                reversed ^= bit;
+                bit_reversal_[index] = reversed;
+            }
+            roots_.resize(length / 2);
+            for (std::size_t index = 0; index < roots_.size(); ++index) {
+                const double angle = -2.0 * kPi * static_cast<double>(index) /
+                                     static_cast<double>(length);
+                roots_[index] = Complex(std::cos(angle), std::sin(angle));
+            }
+            return;
+        }
+
+        padded_length_ = convolution_size(length);
+        chirp_.resize(length);
+        kernel_.assign(padded_length_, Complex(0.0, 0.0));
+        scratch_.resize(padded_length_);
+
+        for (std::size_t index = 0; index < length; ++index) {
+            const long double position = static_cast<long double>(index);
+            const double angle = static_cast<double>(
+                static_cast<long double>(kPi) * position * position /
+                static_cast<long double>(length)
+            );
+            chirp_[index] = Complex(std::cos(-angle), std::sin(-angle));
+            const Complex kernel_value(std::cos(angle), std::sin(angle));
+            kernel_[index] = kernel_value;
+            if (index != 0) {
+                kernel_[padded_length_ - index] = kernel_value;
+            }
+        }
+        radix2_fft(kernel_, false);
+    }
+
+    void execute(std::vector<Complex>& values) {
+        if (radix2_) {
+            execute_radix2(values);
+            return;
+        }
+
+        std::fill(scratch_.begin(), scratch_.end(), Complex(0.0, 0.0));
+        for (std::size_t index = 0; index < length_; ++index) {
+            scratch_[index] = values[index] * chirp_[index];
+        }
+        radix2_fft(scratch_, false);
+        for (std::size_t index = 0; index < padded_length_; ++index) {
+            scratch_[index] *= kernel_[index];
+        }
+        radix2_fft(scratch_, true);
+        for (std::size_t index = 0; index < length_; ++index) {
+            values[index] = scratch_[index] * chirp_[index];
+        }
+    }
+
+private:
+    void execute_radix2(std::vector<Complex>& values) const {
+        if (length_ <= 1) {
+            return;
+        }
+        for (std::size_t index = 1; index < length_; ++index) {
+            if (index < bit_reversal_[index]) {
+                std::swap(values[index], values[bit_reversal_[index]]);
+            }
+        }
+
+        for (std::size_t span = 2;; span *= 2) {
+            const std::size_t half = span / 2;
+            const std::size_t root_stride = length_ / span;
+            for (std::size_t offset = 0; offset < length_; offset += span) {
+                for (std::size_t index = 0; index < half; ++index) {
+                    const Complex even = values[offset + index];
+                    const Complex odd = values[offset + index + half] *
+                                        roots_[index * root_stride];
+                    values[offset + index] = even + odd;
+                    values[offset + index + half] = even - odd;
+                }
+            }
+            if (span == length_) {
+                break;
+            }
+        }
+    }
+
+    std::size_t length_;
+    bool radix2_;
+    std::size_t padded_length_ = 0;
+    std::vector<Complex> chirp_;
+    std::vector<Complex> kernel_;
+    std::vector<Complex> scratch_;
+    std::vector<std::size_t> bit_reversal_;
+    std::vector<Complex> roots_;
+};
+
 void complex_fft_2d(
     std::vector<Complex>& values,
     std::size_t rows,
@@ -215,6 +319,41 @@ int ffte_r2c_1d(const double* input, std::size_t length, double* output) {
         for (std::size_t index = 0; index < output_length; ++index) {
             output[index * 2] = spectrum[index].real();
             output[index * 2 + 1] = spectrum[index].imag();
+        }
+    });
+}
+
+int ffte_r2c_1d_batch(
+    const double* input,
+    std::size_t length,
+    std::size_t batch_count,
+    double* output
+) {
+    const std::size_t complex_length = ffte_r2c_1d_complex_size(length);
+    if (input == nullptr || output == nullptr || length == 0 ||
+        batch_count == 0 || !product_fits(batch_count, length) ||
+        !product_fits(batch_count, complex_length) ||
+        !product_fits(batch_count * complex_length, 2)) {
+        return FFTE_INVALID_ARGUMENT;
+    }
+
+    return safely([&] {
+        ForwardFFTPlan plan(length);
+        std::vector<Complex> spectrum(length);
+        const std::size_t output_stride = complex_length * 2;
+
+        for (std::size_t batch = 0; batch < batch_count; ++batch) {
+            const std::size_t input_offset = batch * length;
+            for (std::size_t index = 0; index < length; ++index) {
+                spectrum[index] = Complex(input[input_offset + index], 0.0);
+            }
+            plan.execute(spectrum);
+
+            const std::size_t output_offset = batch * output_stride;
+            for (std::size_t index = 0; index < complex_length; ++index) {
+                output[output_offset + index * 2] = spectrum[index].real();
+                output[output_offset + index * 2 + 1] = spectrum[index].imag();
+            }
         }
     });
 }

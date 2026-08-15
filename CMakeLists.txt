@@ -36,7 +36,7 @@ if(EMSCRIPTEN)
             "-sENVIRONMENT=web,worker,node"
             "-sFILESYSTEM=0"
             "-sNO_EXIT_RUNTIME=1"
-            "-sEXPORTED_FUNCTIONS=['_ffte_r2c_1d_complex_size','_ffte_r2c_2d_complex_size','_ffte_r2c_1d','_ffte_c2r_1d','_ffte_c2c_1d','_ffte_r2c_2d','_ffte_c2r_2d','_ffte_c2c_2d','_malloc','_free']"
+            "-sEXPORTED_FUNCTIONS=['_ffte_r2c_1d_complex_size','_ffte_r2c_2d_complex_size','_ffte_r2c_1d','_ffte_r2c_1d_batch','_ffte_c2r_1d','_ffte_c2c_1d','_ffte_r2c_2d','_ffte_c2r_2d','_ffte_c2c_2d','_malloc','_free']"
             "-sEXPORTED_RUNTIME_METHODS=['HEAPF64']"
     )
 endif()

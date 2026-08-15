@@ -48,6 +48,19 @@ FFTE_API size_t ffte_r2c_2d_complex_size(size_t rows, size_t columns);
 FFTE_API int ffte_r2c_1d(const double* input, size_t length, double* output);
 
 /*
+ * Forward batch of contiguous, equal-length 1D real transforms.
+ *
+ * input:  batch_count * length real doubles, transform-major.
+ * output: batch_count contiguous interleaved Hermitian half-spectra.
+ */
+FFTE_API int ffte_r2c_1d_batch(
+    const double* input,
+    size_t length,
+    size_t batch_count,
+    double* output
+);
+
+/*
  * Inverse 1D transform. The inverse is normalized, so c2r(r2c(x)) == x.
  *
  * input:  interleaved Hermitian half-spectrum containing

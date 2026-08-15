@@ -98,6 +98,19 @@ for (const length of [
     if (length <= 16) almostEqual(spectrum, referenceR2c1d(input));
     almostEqual(fft.c2r1d(spectrum, length), input);
 
+    const batchInput = Float64Array.from(
+        { length: length * 3 },
+        (_, index) => Math.cos(index * 0.23) + index * 0.0007
+    );
+    const batchSpectrum = fft.r2c1dBatch(batchInput, length);
+    const outputStride = 2 * (Math.floor(length / 2) + 1);
+    for (let batch = 0; batch < 3; batch += 1) {
+        almostEqual(
+            batchSpectrum.slice(batch * outputStride, (batch + 1) * outputStride),
+            fft.r2c1d(batchInput.slice(batch * length, (batch + 1) * length))
+        );
+    }
+
     const complexInput = Float64Array.from(
         { length: length * 2 },
         (_, index) => Math.sin(index * 0.19) + index * 0.001
@@ -140,6 +153,7 @@ for (const [rows, columns] of [
 }
 
 assert.throws(() => fft.c2r1d(new Float64Array(2), 4), RangeError);
+assert.throws(() => fft.r2c1dBatch(new Float64Array(5), 2), RangeError);
 assert.throws(() => fft.r2c2d(new Float64Array(4), 2, 3), RangeError);
 
 console.log('All FFTE WebAssembly tests passed');

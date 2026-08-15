@@ -125,6 +125,40 @@ void test_1d(std::size_t length) {
     }
 }
 
+void test_real_batch(std::size_t length, std::size_t batch_count) {
+    const std::size_t complex_length = ffte_r2c_1d_complex_size(length);
+    const std::size_t output_stride = complex_length * 2;
+    std::vector<double> input(length * batch_count);
+    for (std::size_t index = 0; index < input.size(); ++index) {
+        input[index] = sample(index) + 0.01 * static_cast<double>(index / length);
+    }
+    std::vector<double> output(batch_count * output_stride);
+    check(
+        ffte_r2c_1d_batch(
+            input.data(), length, batch_count, output.data()
+        ) == FFTE_SUCCESS,
+        "batched 1D forward status for length " + std::to_string(length)
+    );
+
+    for (std::size_t batch = 0; batch < batch_count; ++batch) {
+        const std::vector<double> transform_input(
+            input.begin() + batch * length,
+            input.begin() + (batch + 1) * length
+        );
+        const auto expected = reference_dft_1d(transform_input);
+        for (std::size_t index = 0; index < complex_length; ++index) {
+            const std::size_t output_index = batch * output_stride + index * 2;
+            const Complex actual(output[output_index], output[output_index + 1]);
+            check(
+                std::abs(actual - expected[index]) < kTolerance,
+                "batched 1D result for length " + std::to_string(length) +
+                    ", batch " + std::to_string(batch) + ", bin " +
+                    std::to_string(index)
+            );
+        }
+    }
+}
+
 void test_complex_1d(std::size_t length) {
     std::vector<Complex> input(length);
     std::vector<double> interleaved(length * 2);
@@ -262,6 +296,8 @@ void test_invalid_arguments() {
           "1D forward rejects null input");
     check(ffte_r2c_1d(&value, 0, &value) == FFTE_INVALID_ARGUMENT,
           "1D forward rejects zero length");
+    check(ffte_r2c_1d_batch(&value, 1, 0, &value) == FFTE_INVALID_ARGUMENT,
+          "batched 1D forward rejects zero batches");
     check(ffte_c2r_1d(&value, 1, nullptr) == FFTE_INVALID_ARGUMENT,
           "1D inverse rejects null output");
     check(ffte_r2c_2d(&value, 0, 1, &value) == FFTE_INVALID_ARGUMENT,
@@ -282,6 +318,7 @@ int main() {
              16U, 17U, 25U, 31U, 32U, 63U, 64U, 65U, 97U, 127U
          }) {
         test_1d(length);
+        test_real_batch(length, 3);
         test_complex_1d(length);
     }
 

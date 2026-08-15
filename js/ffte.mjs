@@ -56,6 +56,26 @@ export class FFTE {
         );
     }
 
+    r2c1dBatch(values, length) {
+        requirePositiveInteger(length, 'length');
+        const input =
+            values instanceof Float64Array ? values : Float64Array.from(values);
+        if (input.length === 0 || input.length % length !== 0) {
+            throw new RangeError('input length must be a positive multiple of length');
+        }
+        const batchCount = input.length / length;
+        const outputLength =
+            batchCount * 2 * (Math.floor(length / 2) + 1);
+        return this._call(input, outputLength, (inputPointer, outputPointer) =>
+            this.module._ffte_r2c_1d_batch(
+                inputPointer,
+                length,
+                batchCount,
+                outputPointer
+            )
+        );
+    }
+
     c2r1d(spectrum, length) {
         requirePositiveInteger(length, 'length');
         const input = Float64Array.from(spectrum);

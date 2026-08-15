@@ -7,6 +7,7 @@ for row-major 1D and 2D data of **any positive length**.
 - Iterative radix-2 Cooley-Tukey FFT for power-of-two lengths.
 - Bluestein's chirp-z algorithm for all other lengths, including primes.
 - Compact Hermitian half-spectrum output using interleaved `double` values.
+- Batched 1D R2C transforms that reuse FFT plans and workspace.
 - A stable C ABI plus a small JavaScript `Float64Array` wrapper.
 
 ## Spectrum layout
@@ -48,6 +49,12 @@ Copy-Item build-wasm\ffte.js, build-wasm\ffte.wasm dist\
 node tests\test_wasm.mjs
 ```
 
+To compare separate and batched transforms after building, run:
+
+```sh
+node tests/benchmark_batch.mjs
+```
+
 The generated module uses expandable memory and can run in browsers, web
 workers, or Node.js. After copying the two generated files into `dist`, the
 JavaScript wrapper can be used as follows:
@@ -60,6 +67,9 @@ const input = new Float64Array([1, 2, 3, 4, 5]);
 const spectrum = fft.r2c1d(input);
 const restored = fft.c2r1d(spectrum, input.length);
 const complexSpectrum = fft.c2c1d(new Float64Array([1, 2, 3, 4]));
+
+// Three contiguous real transforms of length five in one WASM call.
+const batchSpectrum = fft.r2c1dBatch(new Float64Array(3 * 5), 5);
 
 const image = new Float64Array(7 * 11);
 const spectrum2d = fft.r2c2d(image, 7, 11);
