@@ -1,5 +1,18 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { createFFT } from '../js/ffte.mjs';
+
+const wasmBytes = await readFile(
+    new URL('../dist/ffte.wasm', import.meta.url)
+);
+const wasmModule = new WebAssembly.Module(wasmBytes);
+assert.deepEqual(WebAssembly.Module.imports(wasmModule), [
+    {
+        module: 'env',
+        name: 'emscripten_notify_memory_growth',
+        kind: 'function',
+    },
+]);
 
 const fft = await createFFT();
 
@@ -180,5 +193,13 @@ for (const [rows, columns] of [
 assert.throws(() => fft.c2r1d(new Float64Array(2), 4), RangeError);
 assert.throws(() => fft.r2c1dBatch(new Float64Array(5), 2), RangeError);
 assert.throws(() => fft.r2c2d(new Float64Array(4), 2, 3), RangeError);
+
+const oldMemory = fft.exports.memory.buffer;
+fft.exports.memory.grow(1);
+assert.notEqual(fft.exports.memory.buffer, oldMemory);
+almostEqual(
+    fft.c2r1d(fft.r2c1d(new Float64Array([1, 2, 3, 4, 5])), 5),
+    new Float64Array([1, 2, 3, 4, 5])
+);
 
 console.log('All FFTE WebAssembly tests passed');

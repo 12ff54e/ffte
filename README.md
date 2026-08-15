@@ -45,7 +45,8 @@ Load the Emscripten environment, then configure with its CMake wrapper:
 emcmake cmake -S . -B build-wasm -DFFTE_BUILD_TESTS=OFF
 cmake --build build-wasm --target ffte_wasm
 New-Item -ItemType Directory -Force dist
-Copy-Item build-wasm\ffte.js, build-wasm\ffte.wasm dist\
+Copy-Item build-wasm\ffte.wasm dist\
+Copy-Item js\ffte.mjs dist\ffte.js
 node tests\test_wasm.mjs
 ```
 
@@ -55,12 +56,12 @@ To compare separate and batched transforms after building, run:
 node tests/benchmark_batch.mjs
 ```
 
-The generated module uses expandable memory and can run in browsers, web
-workers, or Node.js. After copying the two generated files into `dist`, the
-JavaScript wrapper can be used as follows:
+Emscripten generates only a standalone `.wasm` binary with expandable memory.
+The small handwritten JavaScript wrapper directly instantiates it in browsers,
+web workers, or Node.js. After copying the binary and wrapper into `dist`, use:
 
 ```js
-import { createFFT } from './js/ffte.mjs';
+import { createFFT } from './dist/ffte.js';
 
 const fft = await createFFT();
 const input = new Float64Array([1, 2, 3, 4, 5]);
