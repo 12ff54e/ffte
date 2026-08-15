@@ -204,6 +204,58 @@ void test_complex_1d(std::size_t length) {
     }
 }
 
+void test_complex_batch(std::size_t length, std::size_t batch_count) {
+    const std::size_t stride = length * 2;
+    std::vector<double> input(batch_count * stride);
+    for (std::size_t index = 0; index < input.size(); ++index) {
+        input[index] = sample(index) * 0.7 + index * 0.0003;
+    }
+    std::vector<double> spectrum(input.size());
+    std::vector<double> reconstructed(input.size());
+
+    check(
+        ffte_c2c_1d_batch(
+            input.data(), length, batch_count, FFTE_FORWARD, spectrum.data()
+        ) == FFTE_SUCCESS,
+        "complex batch forward status for length " + std::to_string(length)
+    );
+    for (std::size_t batch = 0; batch < batch_count; ++batch) {
+        std::vector<Complex> transform_input(length);
+        for (std::size_t index = 0; index < length; ++index) {
+            const std::size_t offset = batch * stride + index * 2;
+            transform_input[index] = Complex(input[offset], input[offset + 1]);
+        }
+        const auto expected = reference_complex_dft_1d(transform_input);
+        for (std::size_t index = 0; index < length; ++index) {
+            const std::size_t offset = batch * stride + index * 2;
+            const Complex actual(spectrum[offset], spectrum[offset + 1]);
+            check(
+                std::abs(actual - expected[index]) < kTolerance,
+                "complex batch result for length " + std::to_string(length) +
+                    ", batch " + std::to_string(batch) + ", bin " +
+                    std::to_string(index)
+            );
+        }
+    }
+
+    check(
+        ffte_c2c_1d_batch(
+            spectrum.data(),
+            length,
+            batch_count,
+            FFTE_INVERSE,
+            reconstructed.data()
+        ) == FFTE_SUCCESS,
+        "complex batch inverse status for length " + std::to_string(length)
+    );
+    for (std::size_t index = 0; index < input.size(); ++index) {
+        check(
+            std::abs(reconstructed[index] - input[index]) < kTolerance,
+            "complex batch round trip for component " + std::to_string(index)
+        );
+    }
+}
+
 void test_2d(std::size_t rows, std::size_t columns) {
     std::vector<double> input(rows * columns);
     for (std::size_t index = 0; index < input.size(); ++index) {
@@ -306,6 +358,9 @@ void test_invalid_arguments() {
           "2D inverse rejects zero columns");
     check(ffte_c2c_1d(&value, 1, 0, &value) == FFTE_INVALID_ARGUMENT,
           "complex 1D rejects invalid direction");
+    check(ffte_c2c_1d_batch(&value, 1, 0, FFTE_FORWARD, &value) ==
+              FFTE_INVALID_ARGUMENT,
+          "complex batch rejects zero batches");
     check(ffte_c2c_2d(&value, 1, 1, 0, &value) == FFTE_INVALID_ARGUMENT,
           "complex 2D rejects invalid direction");
 }
@@ -320,6 +375,7 @@ int main() {
         test_1d(length);
         test_real_batch(length, 3);
         test_complex_1d(length);
+        test_complex_batch(length, 3);
     }
 
     for (const auto dimensions : {

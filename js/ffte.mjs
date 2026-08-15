@@ -104,6 +104,28 @@ export class FFTE {
         );
     }
 
+    c2c1dBatch(values, length, inverse = false) {
+        requirePositiveInteger(length, 'length');
+        const input =
+            values instanceof Float64Array ? values : Float64Array.from(values);
+        const transformWidth = length * 2;
+        if (input.length === 0 || input.length % transformWidth !== 0) {
+            throw new RangeError(
+                'input length must be a positive multiple of 2 * length'
+            );
+        }
+        const batchCount = input.length / transformWidth;
+        return this._call(input, input.length, (inputPointer, outputPointer) =>
+            this.module._ffte_c2c_1d_batch(
+                inputPointer,
+                length,
+                batchCount,
+                inverse ? 1 : -1,
+                outputPointer
+            )
+        );
+    }
+
     r2c2d(values, rows, columns) {
         requirePositiveInteger(rows, 'rows');
         requirePositiveInteger(columns, 'columns');

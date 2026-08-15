@@ -120,6 +120,31 @@ for (const length of [
         almostEqual(complexSpectrum, referenceC2c1d(complexInput));
     }
     almostEqual(fft.c2c1d(complexSpectrum, true), complexInput);
+
+    const complexBatchInput = Float64Array.from(
+        { length: length * 2 * 3 },
+        (_, index) => Math.cos(index * 0.11) + index * 0.0002
+    );
+    const complexBatchSpectrum = fft.c2c1dBatch(complexBatchInput, length);
+    const complexStride = length * 2;
+    for (let batch = 0; batch < 3; batch += 1) {
+        almostEqual(
+            complexBatchSpectrum.slice(
+                batch * complexStride,
+                (batch + 1) * complexStride
+            ),
+            fft.c2c1d(
+                complexBatchInput.slice(
+                    batch * complexStride,
+                    (batch + 1) * complexStride
+                )
+            )
+        );
+    }
+    almostEqual(
+        fft.c2c1dBatch(complexBatchSpectrum, length, true),
+        complexBatchInput
+    );
 }
 
 for (const [rows, columns] of [

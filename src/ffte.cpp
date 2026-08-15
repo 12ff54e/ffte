@@ -404,6 +404,48 @@ int ffte_c2c_1d(
     });
 }
 
+int ffte_c2c_1d_batch(
+    const double* input,
+    std::size_t length,
+    std::size_t batch_count,
+    int direction,
+    double* output
+) {
+    if (input == nullptr || output == nullptr || length == 0 ||
+        batch_count == 0 || !product_fits(batch_count, length) ||
+        !product_fits(batch_count * length, 2) ||
+        (direction != FFTE_FORWARD && direction != FFTE_INVERSE)) {
+        return FFTE_INVALID_ARGUMENT;
+    }
+
+    return safely([&] {
+        ForwardFFTPlan plan(length);
+        std::vector<Complex> values(length);
+        const bool inverse = direction == FFTE_INVERSE;
+        const double inverse_scale = 1.0 / static_cast<double>(length);
+
+        for (std::size_t batch = 0; batch < batch_count; ++batch) {
+            const std::size_t offset = batch * length * 2;
+            for (std::size_t index = 0; index < length; ++index) {
+                const Complex value(
+                    input[offset + index * 2],
+                    input[offset + index * 2 + 1]
+                );
+                values[index] = inverse ? std::conj(value) : value;
+            }
+            plan.execute(values);
+
+            for (std::size_t index = 0; index < length; ++index) {
+                const Complex value = inverse
+                    ? std::conj(values[index]) * inverse_scale
+                    : values[index];
+                output[offset + index * 2] = value.real();
+                output[offset + index * 2 + 1] = value.imag();
+            }
+        }
+    });
+}
+
 int ffte_r2c_2d(
     const double* input,
     std::size_t rows,

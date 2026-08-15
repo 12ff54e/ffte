@@ -81,6 +81,18 @@ FFTE_API int ffte_c2c_1d(
 );
 
 /*
+ * Batch of contiguous, equal-length 1D complex transforms.
+ * Both buffers contain 2 * batch_count * length interleaved doubles.
+ */
+FFTE_API int ffte_c2c_1d_batch(
+    const double* input,
+    size_t length,
+    size_t batch_count,
+    int direction,
+    double* output
+);
+
+/*
  * Forward row-major 2D transform.
  *
  * input:  rows * columns real doubles.
