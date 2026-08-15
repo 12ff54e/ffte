@@ -46,6 +46,47 @@ function referenceR2c2d(input, rows, columns) {
     return output;
 }
 
+function referenceC2c1d(input) {
+    const length = input.length / 2;
+    const output = new Float64Array(input.length);
+    for (let frequency = 0; frequency < length; frequency += 1) {
+        for (let position = 0; position < length; position += 1) {
+            const angle = -2 * Math.PI * frequency * position / length;
+            const real = input[2 * position];
+            const imaginary = input[2 * position + 1];
+            output[2 * frequency] +=
+                real * Math.cos(angle) - imaginary * Math.sin(angle);
+            output[2 * frequency + 1] +=
+                real * Math.sin(angle) + imaginary * Math.cos(angle);
+        }
+    }
+    return output;
+}
+
+function referenceC2c2d(input, rows, columns) {
+    const output = new Float64Array(input.length);
+    for (let outputRow = 0; outputRow < rows; outputRow += 1) {
+        for (let outputColumn = 0; outputColumn < columns; outputColumn += 1) {
+            const outputIndex = 2 * (outputRow * columns + outputColumn);
+            for (let row = 0; row < rows; row += 1) {
+                for (let column = 0; column < columns; column += 1) {
+                    const inputIndex = 2 * (row * columns + column);
+                    const angle = -2 * Math.PI * (
+                        outputRow * row / rows + outputColumn * column / columns
+                    );
+                    const real = input[inputIndex];
+                    const imaginary = input[inputIndex + 1];
+                    output[outputIndex] +=
+                        real * Math.cos(angle) - imaginary * Math.sin(angle);
+                    output[outputIndex + 1] +=
+                        real * Math.sin(angle) + imaginary * Math.cos(angle);
+                }
+            }
+        }
+    }
+    return output;
+}
+
 for (const length of [
     1, 2, 3, 4, 5, 7, 8, 11, 16, 25, 31, 64, 97, 1000, 1009, 4096,
 ]) {
@@ -56,6 +97,16 @@ for (const length of [
     const spectrum = fft.r2c1d(input);
     if (length <= 16) almostEqual(spectrum, referenceR2c1d(input));
     almostEqual(fft.c2r1d(spectrum, length), input);
+
+    const complexInput = Float64Array.from(
+        { length: length * 2 },
+        (_, index) => Math.sin(index * 0.19) + index * 0.001
+    );
+    const complexSpectrum = fft.c2c1d(complexInput);
+    if (length <= 16) {
+        almostEqual(complexSpectrum, referenceC2c1d(complexInput));
+    }
+    almostEqual(fft.c2c1d(complexSpectrum, true), complexInput);
 }
 
 for (const [rows, columns] of [
@@ -70,6 +121,22 @@ for (const [rows, columns] of [
         almostEqual(spectrum, referenceR2c2d(input, rows, columns));
     }
     almostEqual(fft.c2r2d(spectrum, rows, columns), input);
+
+    const complexInput = Float64Array.from(
+        { length: rows * columns * 2 },
+        (_, index) => Math.cos(index * 0.17) - index * 0.002
+    );
+    const complexSpectrum = fft.c2c2d(complexInput, rows, columns);
+    if (rows * columns <= 25) {
+        almostEqual(
+            complexSpectrum,
+            referenceC2c2d(complexInput, rows, columns)
+        );
+    }
+    almostEqual(
+        fft.c2c2d(complexSpectrum, rows, columns, true),
+        complexInput
+    );
 }
 
 assert.throws(() => fft.c2r1d(new Float64Array(2), 4), RangeError);

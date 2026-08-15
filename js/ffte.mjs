@@ -68,6 +68,22 @@ export class FFTE {
         );
     }
 
+    c2c1d(values, inverse = false) {
+        const input = Float64Array.from(values);
+        if (input.length === 0 || input.length % 2 !== 0) {
+            throw new RangeError('values must contain interleaved complex pairs');
+        }
+        const length = input.length / 2;
+        return this._call(input, input.length, (inputPointer, outputPointer) =>
+            this.module._ffte_c2c_1d(
+                inputPointer,
+                length,
+                inverse ? 1 : -1,
+                outputPointer
+            )
+        );
+    }
+
     r2c2d(values, rows, columns) {
         requirePositiveInteger(rows, 'rows');
         requirePositiveInteger(columns, 'columns');
@@ -104,6 +120,25 @@ export class FFTE {
                 inputPointer,
                 rows,
                 columns,
+                outputPointer
+            )
+        );
+    }
+
+    c2c2d(values, rows, columns, inverse = false) {
+        requirePositiveInteger(rows, 'rows');
+        requirePositiveInteger(columns, 'columns');
+        const input = Float64Array.from(values);
+        const expectedLength = 2 * checkedProduct(rows, columns, 'input shape');
+        if (input.length !== expectedLength) {
+            throw new RangeError(`input must contain ${expectedLength} doubles`);
+        }
+        return this._call(input, input.length, (inputPointer, outputPointer) =>
+            this.module._ffte_c2c_2d(
+                inputPointer,
+                rows,
+                columns,
+                inverse ? 1 : -1,
                 outputPointer
             )
         );

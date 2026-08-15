@@ -27,6 +27,11 @@ enum ffte_status {
     FFTE_INTERNAL_ERROR = 3
 };
 
+enum ffte_direction {
+    FFTE_FORWARD = -1,
+    FFTE_INVERSE = 1
+};
+
 /* Number of complex values produced by a one-dimensional real transform. */
 FFTE_API size_t ffte_r2c_1d_complex_size(size_t length);
 
@@ -52,6 +57,17 @@ FFTE_API int ffte_r2c_1d(const double* input, size_t length, double* output);
 FFTE_API int ffte_c2r_1d(const double* input, size_t length, double* output);
 
 /*
+ * Forward or normalized-inverse 1D complex transform.
+ * Both buffers contain 2 * length interleaved real/imaginary doubles.
+ */
+FFTE_API int ffte_c2c_1d(
+    const double* input,
+    size_t length,
+    int direction,
+    double* output
+);
+
+/*
  * Forward row-major 2D transform.
  *
  * input:  rows * columns real doubles.
@@ -74,6 +90,18 @@ FFTE_API int ffte_c2r_2d(
     const double* input,
     size_t rows,
     size_t columns,
+    double* output
+);
+
+/*
+ * Forward or normalized-inverse row-major 2D complex transform.
+ * Both buffers contain 2 * rows * columns interleaved doubles.
+ */
+FFTE_API int ffte_c2c_2d(
+    const double* input,
+    size_t rows,
+    size_t columns,
+    int direction,
     double* output
 );
 

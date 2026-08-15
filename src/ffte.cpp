@@ -241,6 +241,30 @@ int ffte_c2r_1d(const double* input, std::size_t length, double* output) {
     });
 }
 
+int ffte_c2c_1d(
+    const double* input,
+    std::size_t length,
+    int direction,
+    double* output
+) {
+    if (input == nullptr || output == nullptr || length == 0 ||
+        (direction != FFTE_FORWARD && direction != FFTE_INVERSE)) {
+        return FFTE_INVALID_ARGUMENT;
+    }
+
+    return safely([&] {
+        std::vector<Complex> values(length);
+        for (std::size_t index = 0; index < length; ++index) {
+            values[index] = Complex(input[index * 2], input[index * 2 + 1]);
+        }
+        complex_fft(values, direction == FFTE_INVERSE);
+        for (std::size_t index = 0; index < length; ++index) {
+            output[index * 2] = values[index].real();
+            output[index * 2 + 1] = values[index].imag();
+        }
+    });
+}
+
 int ffte_r2c_2d(
     const double* input,
     std::size_t rows,
@@ -307,6 +331,33 @@ int ffte_c2r_2d(
         complex_fft_2d(spectrum, rows, columns, true);
         for (std::size_t index = 0; index < rows * columns; ++index) {
             output[index] = spectrum[index].real();
+        }
+    });
+}
+
+int ffte_c2c_2d(
+    const double* input,
+    std::size_t rows,
+    std::size_t columns,
+    int direction,
+    double* output
+) {
+    if (input == nullptr || output == nullptr || rows == 0 || columns == 0 ||
+        !product_fits(rows, columns) ||
+        (direction != FFTE_FORWARD && direction != FFTE_INVERSE)) {
+        return FFTE_INVALID_ARGUMENT;
+    }
+
+    return safely([&] {
+        const std::size_t value_count = rows * columns;
+        std::vector<Complex> values(value_count);
+        for (std::size_t index = 0; index < value_count; ++index) {
+            values[index] = Complex(input[index * 2], input[index * 2 + 1]);
+        }
+        complex_fft_2d(values, rows, columns, direction == FFTE_INVERSE);
+        for (std::size_t index = 0; index < value_count; ++index) {
+            output[index * 2] = values[index].real();
+            output[index * 2 + 1] = values[index].imag();
         }
     });
 }

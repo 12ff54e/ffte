@@ -1,8 +1,8 @@
 # FFTE
 
 FFTE is a dependency-free C++17 FFT library designed for WebAssembly. It
-provides normalized real-to-complex and complex-to-real transforms for
-row-major 1D and 2D data of **any positive length**.
+provides real-to-complex, complex-to-real, and complex-to-complex transforms
+for row-major 1D and 2D data of **any positive length**.
 
 - Iterative radix-2 Cooley-Tukey FFT for power-of-two lengths.
 - Bluestein's chirp-z algorithm for all other lengths, including primes.
@@ -18,6 +18,10 @@ row-major 1D and 2D data of **any positive length**.
 `rows * (floor(columns / 2) + 1)` complex half-spectrum in the same interleaved
 format. The inverse transforms accept those layouts and divide by the total
 number of samples, so a forward/inverse round trip reproduces the input.
+
+Complex-to-complex transforms use interleaved input and output arrays of
+`[real0, imag0, real1, imag1, ...]`. Pass `true` as the JavaScript method's
+final argument, or `FFTE_INVERSE` to the C API, for a normalized inverse.
 
 ## Native build and test
 
@@ -55,6 +59,7 @@ const fft = await createFFT();
 const input = new Float64Array([1, 2, 3, 4, 5]);
 const spectrum = fft.r2c1d(input);
 const restored = fft.c2r1d(spectrum, input.length);
+const complexSpectrum = fft.c2c1d(new Float64Array([1, 2, 3, 4]));
 
 const image = new Float64Array(7 * 11);
 const spectrum2d = fft.r2c2d(image, 7, 11);

@@ -43,6 +43,22 @@ std::vector<Complex> reference_dft_1d(const std::vector<double>& input) {
     return output;
 }
 
+std::vector<Complex> reference_complex_dft_1d(
+    const std::vector<Complex>& input
+) {
+    std::vector<Complex> output(input.size());
+    for (std::size_t frequency = 0; frequency < input.size(); ++frequency) {
+        for (std::size_t position = 0; position < input.size(); ++position) {
+            const double angle = -2.0 * kPi * static_cast<double>(frequency) *
+                                 static_cast<double>(position) /
+                                 static_cast<double>(input.size());
+            output[frequency] += input[position] *
+                                 Complex(std::cos(angle), std::sin(angle));
+        }
+    }
+    return output;
+}
+
 std::vector<Complex> reference_dft_2d(
     const std::vector<double>& input,
     std::size_t rows,
@@ -109,6 +125,51 @@ void test_1d(std::size_t length) {
     }
 }
 
+void test_complex_1d(std::size_t length) {
+    std::vector<Complex> input(length);
+    std::vector<double> interleaved(length * 2);
+    for (std::size_t index = 0; index < length; ++index) {
+        input[index] = Complex(sample(index), sample(index + 3) * 0.4);
+        interleaved[index * 2] = input[index].real();
+        interleaved[index * 2 + 1] = input[index].imag();
+    }
+
+    std::vector<double> spectrum(length * 2);
+    check(
+        ffte_c2c_1d(
+            interleaved.data(), length, FFTE_FORWARD, spectrum.data()
+        ) == FFTE_SUCCESS,
+        "complex 1D forward status for length " + std::to_string(length)
+    );
+
+    if (length <= 17) {
+        const auto expected = reference_complex_dft_1d(input);
+        for (std::size_t index = 0; index < length; ++index) {
+            const Complex actual(spectrum[index * 2], spectrum[index * 2 + 1]);
+            check(
+                std::abs(actual - expected[index]) < kTolerance,
+                "complex 1D reference result for length " +
+                    std::to_string(length) + ", bin " + std::to_string(index)
+            );
+        }
+    }
+
+    std::vector<double> reconstructed(length * 2);
+    check(
+        ffte_c2c_1d(
+            spectrum.data(), length, FFTE_INVERSE, reconstructed.data()
+        ) == FFTE_SUCCESS,
+        "complex 1D inverse status for length " + std::to_string(length)
+    );
+    for (std::size_t index = 0; index < interleaved.size(); ++index) {
+        check(
+            std::abs(reconstructed[index] - interleaved[index]) < kTolerance,
+            "complex 1D round trip for length " + std::to_string(length) +
+                ", component " + std::to_string(index)
+        );
+    }
+}
+
 void test_2d(std::size_t rows, std::size_t columns) {
     std::vector<double> input(rows * columns);
     for (std::size_t index = 0; index < input.size(); ++index) {
@@ -161,6 +222,40 @@ void test_2d(std::size_t rows, std::size_t columns) {
     }
 }
 
+void test_complex_2d(std::size_t rows, std::size_t columns) {
+    const std::size_t value_count = rows * columns;
+    std::vector<double> input(value_count * 2);
+    for (std::size_t index = 0; index < value_count; ++index) {
+        input[index * 2] = sample(index);
+        input[index * 2 + 1] = sample(index + 5) * 0.3;
+    }
+
+    std::vector<double> spectrum(input.size());
+    std::vector<double> reconstructed(input.size());
+    check(
+        ffte_c2c_2d(
+            input.data(), rows, columns, FFTE_FORWARD, spectrum.data()
+        ) == FFTE_SUCCESS,
+        "complex 2D forward status for " + std::to_string(rows) + "x" +
+            std::to_string(columns)
+    );
+    check(
+        ffte_c2c_2d(
+            spectrum.data(), rows, columns, FFTE_INVERSE, reconstructed.data()
+        ) == FFTE_SUCCESS,
+        "complex 2D inverse status for " + std::to_string(rows) + "x" +
+            std::to_string(columns)
+    );
+    for (std::size_t index = 0; index < input.size(); ++index) {
+        check(
+            std::abs(reconstructed[index] - input[index]) < kTolerance,
+            "complex 2D round trip for " + std::to_string(rows) + "x" +
+                std::to_string(columns) + ", component " +
+                std::to_string(index)
+        );
+    }
+}
+
 void test_invalid_arguments() {
     double value = 0.0;
     check(ffte_r2c_1d(nullptr, 1, &value) == FFTE_INVALID_ARGUMENT,
@@ -173,6 +268,10 @@ void test_invalid_arguments() {
           "2D forward rejects zero rows");
     check(ffte_c2r_2d(&value, 1, 0, &value) == FFTE_INVALID_ARGUMENT,
           "2D inverse rejects zero columns");
+    check(ffte_c2c_1d(&value, 1, 0, &value) == FFTE_INVALID_ARGUMENT,
+          "complex 1D rejects invalid direction");
+    check(ffte_c2c_2d(&value, 1, 1, 0, &value) == FFTE_INVALID_ARGUMENT,
+          "complex 2D rejects invalid direction");
 }
 
 }  // namespace
@@ -183,6 +282,7 @@ int main() {
              16U, 17U, 25U, 31U, 32U, 63U, 64U, 65U, 97U, 127U
          }) {
         test_1d(length);
+        test_complex_1d(length);
     }
 
     for (const auto dimensions : {
@@ -190,6 +290,7 @@ int main() {
              {2, 3}, {3, 2}, {3, 5}, {4, 4}, {5, 7}, {6, 10}, {7, 11}
          }) {
         test_2d(dimensions.first, dimensions.second);
+        test_complex_2d(dimensions.first, dimensions.second);
     }
 
     test_invalid_arguments();
