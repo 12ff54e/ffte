@@ -48,7 +48,7 @@ jobs:
         run: node tests/test_wasm.mjs
 
       - name: Upload browser distribution
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ffte-wasm
           path: dist/ffte.wasm
