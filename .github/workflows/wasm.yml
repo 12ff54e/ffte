@@ -1,0 +1,56 @@
+---
+name: Build WebAssembly
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wasm-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test WASM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+
+      - name: Set up Emscripten SDK
+        uses: emscripten-core/setup-emsdk@v15
+        with:
+          version: latest
+          actions-cache-folder: emsdk-cache
+
+      - name: Build FFTE WebAssembly
+        run: |
+          emcmake cmake -S . -B build-wasm \
+            -DFFTE_BUILD_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-wasm --target ffte_wasm --config Release
+          mkdir -p dist
+          cp build-wasm/ffte.wasm dist/ffte.wasm
+
+      - name: Test WebAssembly build
+        run: node tests/test_wasm.mjs
+
+      - name: Upload browser distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffte-wasm
+          path: dist/ffte.wasm
+          if-no-files-found: error
+          retention-days: 30
